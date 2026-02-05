@@ -1,154 +1,60 @@
-import { useState, useEffect } from 'react';
-import './index.css';
-
-type ViewType = 'dock' | 'settings';
-type StatusType = 'info' | 'success' | 'error';
-
-interface Secrets {
-  supabaseUrl: string;
-  supabaseKey: string;
-  cfAccountId: string;
-  cfApiToken: string;
-  cfKvNamespace: string;
-}
-
-interface ApiResponse {
-  success: boolean;
-  message: string;
-}
-
-// Type guard for window.api
-declare global {
-  interface Window {
-    api: {
-      getSecrets: () => Promise<Secrets>;
-      saveSecrets: (secrets: Secrets) => Promise<{ success: boolean }>;
-      supabaseSync: () => Promise<ApiResponse>;
-      cloudflareSync: () => Promise<ApiResponse>;
-    };
-  }
-}
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
 
 function App() {
-  const [view, setView] = useState<ViewType>('dock');
-  const [secrets, setSecrets] = useState<Secrets>({
-    supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-    supabaseKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-    cfAccountId: '',
-    cfApiToken: '',
-    cfKvNamespace: '',
-  });
-  const [status, setStatus] = useState<{ text: string; type: StatusType }>({
-    text: 'Ready',
-    type: 'info',
-  });
-  const [loading, setLoading] = useState(false);
+  const [count, setCount] = useState(0)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    window.api.getSecrets().then((s) => setSecrets((prev) => ({ ...prev, ...s })));
-  }, []);
-
+  // ฟังก์ชัน Sync เชื่อมกับ Backend Electron ของคุณ
   const runSync = async (type: 'supabase' | 'cloudflare') => {
-    setLoading(true);
-    setStatus({ text: `Syncing ${type}...`, type: 'info' });
-    const res =
-      type === 'supabase'
-        ? await window.api.supabaseSync()
-        : await window.api.cloudflareSync();
-    setStatus({ text: res.message, type: res.success ? 'success' : 'error' });
-    setLoading(false);
-    setTimeout(() => setStatus({ text: 'Ready', type: 'info' }), 4000);
-  };
-
-  if (view === 'settings') {
-    return (
-      <div className="dock settings-view">
-        <div className="input-group">
-          <input
-            type="text"
-            placeholder="Supabase URL"
-            value={secrets.supabaseUrl}
-            onChange={(e) =>
-              setSecrets({ ...secrets, supabaseUrl: e.target.value })
-            }
-          />
-          <input
-            type="password"
-            placeholder="Supabase Key"
-            value={secrets.supabaseKey}
-            onChange={(e) =>
-              setSecrets({ ...secrets, supabaseKey: e.target.value })
-            }
-          />
-        </div>
-        <div className="input-group">
-          <input
-            type="text"
-            placeholder="CF Account ID"
-            value={secrets.cfAccountId}
-            onChange={(e) =>
-              setSecrets({ ...secrets, cfAccountId: e.target.value })
-            }
-          />
-          <input
-            type="password"
-            placeholder="CF API Token"
-            value={secrets.cfApiToken}
-            onChange={(e) =>
-              setSecrets({ ...secrets, cfApiToken: e.target.value })
-            }
-          />
-          <input
-            type="text"
-            placeholder="CF KV Namespace"
-            value={secrets.cfKvNamespace}
-            onChange={(e) =>
-              setSecrets({ ...secrets, cfKvNamespace: e.target.value })
-            }
-          />
-        </div>
-        <div className="actions">
-          <button
-            onClick={async () => {
-              await window.api.saveSecrets(secrets);
-              setView('dock');
-            }}
-          >
-            Save
-          </button>
-          <button onClick={() => setView('dock')} className="secondary">
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
+    setLoading(true)
+    try {
+      const res = await window.api[`${type}Sync`]()
+      alert(res.message) // แจ้งเตือนผลลัพธ์
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="dock">
-      <div className="logo">G-DOCK</div>
-      <div className="buttons">
-        <button
-          onClick={() => runSync('supabase')}
-          disabled={loading}
-          className={loading ? 'loading' : ''}
-        >
-          Supabase
-        </button>
-        <button
-          onClick={() => runSync('cloudflare')}
-          disabled={loading}
-          className={loading ? 'loading' : ''}
-        >
-          Cloudflare
-        </button>
-        <button onClick={() => setView('settings')} className="icon-btn">
-          ⚙️
-        </button>
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
       </div>
-      <div className={`status-bar ${status.type}`}>{status.text}</div>
-    </div>
-  );
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        
+        {/* ส่วนที่เพิ่มเข้ามา: ปุ่ม Sync ให้คุณทำงานต่อได้ */}
+        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <button onClick={() => runSync('supabase')} disabled={loading}>
+            {loading ? '...' : 'Sync Supabase'}
+          </button>
+          <button onClick={() => runSync('cloudflare')} disabled={loading}>
+            {loading ? '...' : 'Sync Cloudflare'}
+          </button>
+        </div>
+
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
 }
 
-export default App;
+export default App

@@ -1,0 +1,49 @@
+{
+  "name": "electron-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Electron desktop app with Node Canvas System integration",
+  "main": "dist/main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "concurrently \"npm run build:watch\" \"wait-on tcp:3000 && electron .\"",
+    "dev:main": "tsc --watch src/main.ts --outDir dist",
+    "dev:preload": "tsc src/preload.ts --outDir dist",
+    "build": "npm run build:main && npm run build:preload",
+    "build:main": "tsc src/main.ts --outDir dist",
+    "build:preload": "tsc src/preload.ts --outDir dist",
+    "build:watch": "tsc --watch src --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "node-canvas-system": "file:../../node-canvas-system",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/electron": "^1.6.10",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "concurrently": "^9.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.unidock.canvas",
+    "productName": "UniDock Canvas",
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    }
+  }
+}

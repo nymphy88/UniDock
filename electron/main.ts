@@ -9,18 +9,18 @@ const store = new Store();
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const winWidth = 350;
-  const winHeight = 120;
+  const winWidth = 1200;
+  const winHeight = 800;
 
   const win = new BrowserWindow({
     width: winWidth,
     height: winHeight,
-    x: width - winWidth - 20,
-    y: height - winHeight - 20,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    resizable: false,
+//    x: width - winWidth - 20,
+//    y: height - winHeight - 20,
+    frame: true,
+    transparent: false,
+    alwaysOnTop: false,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,

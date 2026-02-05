@@ -1,1 +1,8 @@
-"use strict";const e=require("electron");e.contextBridge.exposeInMainWorld("api",{getSecrets:()=>e.ipcRenderer.invoke("get-secrets"),saveSecrets:r=>e.ipcRenderer.invoke("save-secrets",r),supabaseSync:()=>e.ipcRenderer.invoke("supabase-sync"),cloudflareSync:()=>e.ipcRenderer.invoke("cloudflare-sync")});
+"use strict";
+const electron = require("electron");
+electron.contextBridge.exposeInMainWorld("api", {
+  getSecrets: () => electron.ipcRenderer.invoke("get-secrets"),
+  saveSecrets: (secrets) => electron.ipcRenderer.invoke("save-secrets", secrets),
+  supabaseSync: () => electron.ipcRenderer.invoke("supabase-sync"),
+  cloudflareSync: () => electron.ipcRenderer.invoke("cloudflare-sync")
+});

@@ -1,0 +1,32 @@
+{
+  "name": "node-canvas-system",
+  "version": "1.0.0",
+  "description": "Self-healing node-based canvas system with AI orchestration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "ts-node tests/examples.ts",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "node-canvas",
+    "orchestration",
+    "data-coercion",
+    "typescript",
+    "ai",
+    "modular"
+  ],
+  "author": "Developer",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "events": "^3.3.0"
+  }
+}
