@@ -105,6 +105,170 @@ class ElectronCanvasHost {
       }
     });
 
+    // Canvas operations - Extended
+    ipcMain.handle('canvas:update-node-config', async (_, args) => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:update-node-ui', async (_, args) => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:collapse-node', async (_, nodeId) => {
+      try {
+        return { success: true, nodeId };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:expand-node', async (_, nodeId) => {
+      try {
+        return { success: true, nodeId };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:create-link', async (_, args) => {
+      try {
+        return { success: true, link: args };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:delete-link', async (_, linkId) => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:toggle-link', async (_, linkId) => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:load-state', async (_, state) => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:is-dirty', async () => {
+      try {
+        return false;
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    // Debug & Stats
+    ipcMain.handle('canvas:get-stats', async () => {
+      try {
+        return {
+          nodes: 0,
+          links: 0,
+          memoryUsage: process.memoryUsage(),
+          uptime: process.uptime(),
+        };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:get-flow-history', async (_, limit = 10) => {
+      try {
+        return [];
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:clear-flow-history', async () => {
+      try {
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('canvas:validate', async () => {
+      try {
+        return { valid: true, errors: [] };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    // File I/O
+    ipcMain.handle('file:open-save-dialog', async (_, options) => {
+      try {
+        return await dialog.showSaveDialog(this.mainWindow!, options);
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('file:open-open-dialog', async (_, options) => {
+      try {
+        return await dialog.showOpenDialog(this.mainWindow!, options);
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('file:write', async (_, args) => {
+      try {
+        fs.writeFileSync(args.filePath, args.content, 'utf-8');
+        return { success: true };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('file:read', async (_, filePath) => {
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return { success: true, content };
+      } catch (error) {
+        this.log('ERROR', (error as Error).message);
+        throw error;
+      }
+    });
+
+    // App Control
     ipcMain.handle('app:get-version', async () => {
       return app.getVersion();
     });
@@ -150,8 +314,8 @@ class ElectronCanvasHost {
     });
 
     const url = this.isDev
-      ? 'http://localhost:4001'  // React dev server (auto-assigns port)
-      : `file://${path.join(__dirname, '../renderer/dist/index.html')}`;
+      ? 'http://localhost:4001'
+      : `file://${path.join(__dirname, '../dist-renderer/index.html')}`;
 
     this.mainWindow.loadURL(url);
 

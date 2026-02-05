@@ -1,7 +1,7 @@
 {
   "files": [],
   "references": [
-    { "path": "./apps/unidock" },
+    { "path": "./apps/electron-desktop" },
     { "path": "./apps/example-module" }
   ]
 }

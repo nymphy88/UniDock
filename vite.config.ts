@@ -8,9 +8,23 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: { format: 'es' }
+            }
+          }
+        }
       },
       preload: {
         input: 'electron/preload.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: { format: 'cjs' } // Electron requires CommonJS for preload
+            }
+          }
+        }
       },
       renderer: {},
     }),

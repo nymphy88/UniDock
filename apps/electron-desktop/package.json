@@ -7,13 +7,15 @@
   "main": "dist/main.js",
   "homepage": "./",
   "scripts": {
-    "dev": "concurrently \"pnpm run build:watch\" \"wait-on tcp:3000 && electron .\"",
+    "dev": "concurrently \"pnpm run dev:vite\" \"pnpm run build:watch\" \"wait-on tcp:4001 && electron .\"",
+    "dev:vite": "vite",
     "dev:main": "tsc --watch",
-    "dev:preload": "tsc --watch",
-    "build": "tsc",
+    "dev:preload": "tsc -p tsconfig.preload.json --watch",
+    "build": "tsc && tsc -p tsconfig.preload.json && vite build",
     "build:main": "tsc",
-    "build:preload": "tsc",
-    "build:watch": "tsc --watch",
+    "build:preload": "tsc -p tsconfig.preload.json",
+    "build:renderer": "vite build",
+    "build:watch": "concurrently \"tsc --watch\" \"tsc -p tsconfig.preload.json --watch\"",
     "typecheck": "tsc --noEmit",
     "start": "electron .",
     "dist": "pnpm run build && electron-builder"
@@ -29,10 +31,12 @@
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "typescript": "^5.8.3",
+    "vite": "^6.0.3",
     "wait-on": "^8.0.0"
   },
   "build": {
