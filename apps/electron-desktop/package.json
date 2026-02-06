@@ -7,15 +7,16 @@
   "main": "dist/main.js",
   "homepage": "./",
   "scripts": {
-    "dev": "concurrently \"pnpm run dev:vite\" \"pnpm run build:watch\" \"wait-on tcp:4001 && electron .\"",
-    "dev:vite": "vite",
+    "dev": "concurrently -k \"pnpm run dev:vite\" \"pnpm run build:watch\" \"pnpm run dev:electron\"",
+    "dev:vite": "vite --port 4001",
+    "dev:electron": "wait-on tcp:4001 && set VITE_DEV_PORT=4001 && electron .",
     "dev:main": "tsc --watch",
     "dev:preload": "tsc -p tsconfig.preload.json --watch",
     "build": "tsc && tsc -p tsconfig.preload.json && vite build",
     "build:main": "tsc",
     "build:preload": "tsc -p tsconfig.preload.json",
     "build:renderer": "vite build",
-    "build:watch": "concurrently \"tsc --watch\" \"tsc -p tsconfig.preload.json --watch\"",
+    "build:watch": "set NODE_OPTIONS=--max-old-space-size=4096 && concurrently \"tsc --watch\" \"tsc -p tsconfig.preload.json --watch\"",
     "typecheck": "tsc --noEmit",
     "start": "electron .",
     "dist": "pnpm run build && electron-builder"
@@ -24,6 +25,7 @@
     "node-canvas-system": "file:../../node-canvas-system",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "reactflow": "^11.11.4",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

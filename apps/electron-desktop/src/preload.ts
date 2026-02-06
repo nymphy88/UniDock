@@ -1,286 +1,141 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { ElectronAPI } from './types';
+
+console.log('[PRELOAD] ✅ Preload script loaded');
 
 /**
  * ============================================
- * Preload Script - Production Edition
- * ============================================
- * 
- * Secure context bridge with:
- * ✅ Full type safety
- * ✅ Error handling
- * ✅ Event streaming
- * ✅ File I/O
- * ✅ App control
- */
-
-/**
  * Canvas API - Node & Link Management
+ * ============================================
  */
-interface CanvasNodeAPI {
-  createNode: (nodeId: string, type: string, config?: any) => Promise<any>;
-  getNodes: () => Promise<any[]>;
-  deleteNode: (nodeId: string) => Promise<{ success: boolean }>;
-  updateNodeConfig: (
-    nodeId: string,
-    configKey: string,
-    value: any,
-    reason?: string
-  ) => Promise<{ success: boolean }>;
-  updateNodeUI: (nodeId: string, ui: any) => Promise<{ success: boolean }>;
-  collapseNode: (nodeId: string) => Promise<any>;
-  expandNode: (nodeId: string) => Promise<any>;
-}
-
-interface CanvasLinkAPI {
-  createLink: (
-    sourceNodeId: string,
-    sourceKey: string,
-    targetNodeId: string,
-    targetKey: string
-  ) => Promise<any>;
-  getLinks: () => Promise<any[]>;
-  deleteLink: (linkId: string) => Promise<{ success: boolean }>;
-  toggleLink: (linkId: string) => Promise<{ success: boolean }>;
-}
-
-interface CanvasStateAPI {
-  getState: () => Promise<any>;
-  saveState: (metadata?: any) => Promise<any>;
-  loadState: (state: any) => Promise<{ success: boolean }>;
-  isDirty: () => Promise<boolean>;
-}
-
-interface CanvasDebugAPI {
-  getStats: () => Promise<any>;
-  getFlowHistory: (limit?: number) => Promise<any[]>;
-  clearFlowHistory: () => Promise<{ success: boolean }>;
-  validate: () => Promise<any>;
-}
-
-interface CanvasEventAPI {
-  onNodeCreated: (callback: (event: any, node: any) => void) => void;
-  onNodeDeleted: (callback: (event: any, nodeId: string) => void) => void;
-  onNodeUpdated: (callback: (event: any, node: any) => void) => void;
-  onLinkCreated: (callback: (event: any, link: any) => void) => void;
-  onLinkDeleted: (callback: (event: any, linkId: string) => void) => void;
-  onStateSaved: (callback: (event: any, state: any) => void) => void;
-  onStateLoaded: (callback: (event: any, state: any) => void) => void;
-  onError: (callback: (event: any, error: any) => void) => void;
-  removeAllListeners: () => void;
-}
-
-/**
- * File I/O API
- */
-interface FileAPI {
-  openSaveDialog: (options: any) => Promise<any>;
-  openOpenDialog: (options: any) => Promise<any>;
-  write: (filePath: string, content: string) => Promise<{ success: boolean }>;
-  read: (filePath: string) => Promise<{ success: boolean; content: string }>;
-}
-
-/**
- * App Control API
- */
-interface AppAPI {
-  getVersion: () => Promise<string>;
-  getPath: (pathType: string) => Promise<string>;
-  getConfig: () => Promise<any>;
-  quit: () => Promise<void>;
-  minimize: () => Promise<void>;
-  maximize: () => Promise<void>;
-  close: () => Promise<void>;
-  onSaveTriggered: (callback: (event: any) => void) => void;
-}
-
-/**
- * Complete Canvas API
- */
-interface CompleteCanvasAPI
-  extends CanvasNodeAPI,
-    CanvasLinkAPI,
-    CanvasStateAPI,
-    CanvasDebugAPI,
-    CanvasEventAPI {}
-
-/**
- * Unified Electron API
- */
-interface ElectronAPI {
-  canvas: CompleteCanvasAPI;
-  file: FileAPI;
-  app: AppAPI;
-}
-
-// ============================================
-// IMPLEMENT CANVAS API
-// ============================================
-
-const canvasAPI: CompleteCanvasAPI = {
-  // ===== NODE OPERATIONS =====
+const canvasAPI = {
+  // Node operations
   createNode: (nodeId: string, type: string, config?: any) =>
     ipcRenderer.invoke('canvas:create-node', { nodeId, type, config }),
-
   getNodes: () => ipcRenderer.invoke('canvas:get-nodes'),
-
-  deleteNode: (nodeId: string) =>
-    ipcRenderer.invoke('canvas:delete-node', nodeId),
-
+  deleteNode: (nodeId: string) => ipcRenderer.invoke('canvas:delete-node', nodeId),
   updateNodeConfig: (nodeId: string, configKey: string, value: any, reason?: string) =>
-    ipcRenderer.invoke('canvas:update-node-config', {
-      nodeId,
-      configKey,
-      value,
-      reason,
-    }),
+    ipcRenderer.invoke('canvas:update-node-config', { nodeId, configKey, value, reason }),
+  updateNodeUI: (nodeId: string, ui: any) => ipcRenderer.invoke('canvas:update-node-ui', { nodeId, ui }),
+  collapseNode: (nodeId: string) => ipcRenderer.invoke('canvas:collapse-node', nodeId),
+  expandNode: (nodeId: string) => ipcRenderer.invoke('canvas:expand-node', nodeId),
 
-  updateNodeUI: (nodeId: string, ui: any) =>
-    ipcRenderer.invoke('canvas:update-node-ui', { nodeId, ui }),
-
-  collapseNode: (nodeId: string) =>
-    ipcRenderer.invoke('canvas:collapse-node', nodeId),
-
-  expandNode: (nodeId: string) =>
-    ipcRenderer.invoke('canvas:expand-node', nodeId),
-
-  // ===== LINK OPERATIONS =====
-  createLink: (sourceNodeId, sourceKey, targetNodeId, targetKey) =>
-    ipcRenderer.invoke('canvas:create-link', {
-      sourceNodeId,
-      sourceKey,
-      targetNodeId,
-      targetKey,
-    }),
-
+  // Link operations
+  createLink: (sourceNodeId: string, sourceKey: string, targetNodeId: string, targetKey: string) =>
+    ipcRenderer.invoke('canvas:create-link', { sourceNodeId, sourceKey, targetNodeId, targetKey }),
   getLinks: () => ipcRenderer.invoke('canvas:get-links'),
+  deleteLink: (linkId: string) => ipcRenderer.invoke('canvas:delete-link', linkId),
+  toggleLink: (linkId: string) => ipcRenderer.invoke('canvas:toggle-link', linkId),
 
-  deleteLink: (linkId: string) =>
-    ipcRenderer.invoke('canvas:delete-link', linkId),
-
-  toggleLink: (linkId: string) =>
-    ipcRenderer.invoke('canvas:toggle-link', linkId),
-
-  // ===== STATE MANAGEMENT =====
+  // State operations
   getState: () => ipcRenderer.invoke('canvas:get-state'),
-
-  saveState: (metadata?: any) =>
-    ipcRenderer.invoke('canvas:save-state', metadata),
-
-  loadState: (state: any) =>
-    ipcRenderer.invoke('canvas:load-state', state),
-
+  saveState: (metadata?: any) => ipcRenderer.invoke('canvas:save-state', metadata),
+  loadState: (state: any) => ipcRenderer.invoke('canvas:load-state', state),
   isDirty: () => ipcRenderer.invoke('canvas:is-dirty'),
 
-  // ===== DEBUG & STATS =====
+  // Debug
   getStats: () => ipcRenderer.invoke('canvas:get-stats'),
-
-  getFlowHistory: (limit?: number) =>
-    ipcRenderer.invoke('canvas:get-flow-history', limit),
-
-  clearFlowHistory: () =>
-    ipcRenderer.invoke('canvas:clear-flow-history'),
-
+  getFlowHistory: (limit?: number) => ipcRenderer.invoke('canvas:get-flow-history', limit),
+  clearFlowHistory: () => ipcRenderer.invoke('canvas:clear-flow-history'),
   validate: () => ipcRenderer.invoke('canvas:validate'),
 
-  // ===== EVENTS =====
-  onNodeCreated: (callback) =>
-    ipcRenderer.on('canvas:node-created', callback),
-
-  onNodeDeleted: (callback) =>
-    ipcRenderer.on('canvas:node-deleted', callback),
-
-  onNodeUpdated: (callback) =>
-    ipcRenderer.on('canvas:node-updated', callback),
-
-  onLinkCreated: (callback) =>
-    ipcRenderer.on('canvas:link-created', callback),
-
-  onLinkDeleted: (callback) =>
-    ipcRenderer.on('canvas:link-deleted', callback),
-
-  onStateSaved: (callback) =>
-    ipcRenderer.on('canvas:state-saved', callback),
-
-  onStateLoaded: (callback) =>
-    ipcRenderer.on('canvas:state-loaded', callback),
-
-  onError: (callback) =>
-    ipcRenderer.on('canvas:error', callback),
-
-  removeAllListeners: () => {
-    ipcRenderer.removeAllListeners('canvas:node-created');
-    ipcRenderer.removeAllListeners('canvas:node-deleted');
-    ipcRenderer.removeAllListeners('canvas:node-updated');
-    ipcRenderer.removeAllListeners('canvas:link-created');
-    ipcRenderer.removeAllListeners('canvas:link-deleted');
-    ipcRenderer.removeAllListeners('canvas:state-saved');
-    ipcRenderer.removeAllListeners('canvas:state-loaded');
-    ipcRenderer.removeAllListeners('canvas:error');
+  // Event listeners
+  // Event listeners - wrap to hide ipcRenderer event parameter
+  onNodeCreated: (callback: any) => {
+    const wrappedCallback = (_: any, node: any) => callback(node);
+    ipcRenderer.on('canvas:node-created', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:node-created', wrappedCallback);
+  },
+  onNodeDeleted: (callback: any) => {
+    const wrappedCallback = (_: any, nodeId: any) => callback(nodeId);
+    ipcRenderer.on('canvas:node-deleted', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:node-deleted', wrappedCallback);
+  },
+  onNodeUpdated: (callback: any) => {
+    const wrappedCallback = (_: any, node: any) => callback(node);
+    ipcRenderer.on('canvas:node-updated', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:node-updated', wrappedCallback);
+  },
+  onLinkCreated: (callback: any) => {
+    const wrappedCallback = (_: any, link: any) => callback(link);
+    ipcRenderer.on('canvas:link-created', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:link-created', wrappedCallback);
+  },
+  onLinkDeleted: (callback: any) => {
+    const wrappedCallback = (_: any, linkId: any) => callback(linkId);
+    ipcRenderer.on('canvas:link-deleted', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:link-deleted', wrappedCallback);
+  },
+  onStateSaved: (callback: any) => {
+    const wrappedCallback = (_: any, state: any) => callback(state);
+    ipcRenderer.on('canvas:state-saved', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:state-saved', wrappedCallback);
+  },
+  onStateLoaded: (callback: any) => {
+    const wrappedCallback = (_: any, state: any) => callback(state);
+    ipcRenderer.on('canvas:state-loaded', wrappedCallback);
+    return () => ipcRenderer.removeListener('canvas:state-loaded', wrappedCallback);
+  },
+  onError: (callback: any) => {
+    ipcRenderer.on('canvas:error', callback);
+    return () => ipcRenderer.removeListener('canvas:error', callback);
   },
 };
 
-// ============================================
-// IMPLEMENT FILE API
-// ============================================
-
-const fileAPI: FileAPI = {
-  openSaveDialog: (options: any) =>
-    ipcRenderer.invoke('file:open-save-dialog', options),
-
-  openOpenDialog: (options: any) =>
-    ipcRenderer.invoke('file:open-open-dialog', options),
-
-  write: (filePath: string, content: string) =>
-    ipcRenderer.invoke('file:write', { filePath, content }),
-
-  read: (filePath: string) =>
-    ipcRenderer.invoke('file:read', filePath),
+/**
+ * ============================================
+ * File API
+ * ============================================
+ */
+const fileAPI = {
+  openSaveDialog: (options: any) => ipcRenderer.invoke('file:open-save-dialog', options),
+  openOpenDialog: (options: any) => ipcRenderer.invoke('file:open-open-dialog', options),
+  write: (filePath: string, content: string) => ipcRenderer.invoke('file:write', { filePath, content }),
+  read: (filePath: string) => ipcRenderer.invoke('file:read', filePath),
 };
 
-// ============================================
-// IMPLEMENT APP API
-// ============================================
+/**
+ * ============================================
+ * Executor API
+ * ============================================
+ */
+const executorAPI = {
+  terminal: {
+    execute: (command: string) => ipcRenderer.invoke('executor:terminal-execute', command),
+  },
+};
 
-const appAPI: AppAPI = {
+/**
+ * ============================================
+ * App API
+ * ============================================
+ */
+const appAPI = {
   getVersion: () => ipcRenderer.invoke('app:get-version'),
-
-  getPath: (pathType: string) =>
-    ipcRenderer.invoke('app:get-path', pathType),
-
   getConfig: () => ipcRenderer.invoke('app:get-config'),
-
   quit: () => ipcRenderer.invoke('app:quit'),
-
   minimize: () => ipcRenderer.invoke('app:minimize'),
-
   maximize: () => ipcRenderer.invoke('app:maximize'),
-
   close: () => ipcRenderer.invoke('app:close'),
 
-  onSaveTriggered: (callback) =>
-    ipcRenderer.on('app:save-triggered', callback),
+  onSaveTriggered: (callback: any) => {
+    ipcRenderer.on('app:save-triggered', callback);
+    return () => ipcRenderer.removeListener('app:save-triggered', callback);
+  },
 };
 
-// ============================================
-// EXPOSE TO RENDERER
-// ============================================
+/**
+ * ============================================
+ * Expose API to Renderer
+ * ============================================
+ */
+console.log('[PRELOAD] 📦 Exposing APIs to main world...');
 
-const electronAPI: ElectronAPI = {
+contextBridge.exposeInMainWorld('electron', {
   canvas: canvasAPI,
   file: fileAPI,
+  executor: executorAPI,
   app: appAPI,
-};
+});
 
-contextBridge.exposeInMainWorld('electron', electronAPI);
-
-// ============================================
-// TYPESCRIPT DEFINITIONS
-// ============================================
-
-declare global {
-  interface Window {
-    electron: ElectronAPI;
-  }
-}
-
-export type { ElectronAPI, CompleteCanvasAPI, FileAPI, AppAPI };
+console.log('[PRELOAD] ✅ APIs exposed successfully');

@@ -2,16 +2,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 /**
  * ============================================
- * useCanvas - Production-Grade Hook
+ * useCanvas - FIXED VERSION
  * ============================================
  * 
- * Features:
- * ✅ Full state management
- * ✅ Error handling & recovery
- * ✅ Event streaming
- * ✅ Performance metrics
- * ✅ Auto-save coordination
- * ✅ Debugging support
+ * Key fixes:
+ * ✅ Proper event listener subscription (with cleanup)
+ * ✅ Cleanup on unmount
+ * ✅ Error handling
+ * ✅ Loading states
  */
 
 interface CanvasHookState {
@@ -25,36 +23,19 @@ interface CanvasHookState {
 }
 
 interface CanvasHookActions {
-  // Nodes
   createNode: (nodeId: string, type: string, config?: any) => Promise<any>;
   deleteNode: (nodeId: string) => Promise<void>;
-  updateNodeConfig: (
-    nodeId: string,
-    configKey: string,
-    value: any,
-    reason?: string
-  ) => Promise<void>;
+  updateNodeConfig: (nodeId: string, configKey: string, value: any, reason?: string) => Promise<void>;
   updateNodeUI: (nodeId: string, ui: any) => Promise<void>;
   collapseNode: (nodeId: string) => Promise<any>;
   expandNode: (nodeId: string) => Promise<any>;
-
-  // Links
-  createLink: (
-    sourceNodeId: string,
-    sourceKey: string,
-    targetNodeId: string,
-    targetKey: string
-  ) => Promise<any>;
+  createLink: (sourceNodeId: string, sourceKey: string, targetNodeId: string, targetKey: string) => Promise<any>;
   deleteLink: (linkId: string) => Promise<void>;
   toggleLink: (linkId: string) => Promise<void>;
-
-  // State
   saveState: (metadata?: any) => Promise<any>;
   loadState: (state: any) => Promise<void>;
   getStats: () => Promise<any>;
   validate: () => Promise<any>;
-
-  // Utilities
   clearError: () => void;
   refresh: () => Promise<void>;
 }
@@ -76,7 +57,7 @@ export const useCanvas = (): UseCanvasReturn => {
 
   // Refs for tracking
   const isMountedRef = useRef(true);
-  const eventListenersRef = useRef<Array<() => void>>([]);
+  const unsubscribersRef = useRef<Array<() => void>>([]);
 
   /**
    * Load initial state
@@ -86,6 +67,19 @@ export const useCanvas = (): UseCanvasReturn => {
       try {
         setLoading(true);
 
+        // ← Guard: Check if window.electron exists, with retry
+        let attempts = 0;
+        while (!window.electron?.canvas && attempts < 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
+        if (!window.electron?.canvas) {
+          throw new Error('Electron IPC bridge not available after 1s - preload failed to load');
+        }
+
+        console.log('[useCanvas] ✅ Electron bridge available');
+
         // Load nodes, links, and stats in parallel
         const [nodesData, linksData, statsData] = await Promise.all([
           window.electron.canvas.getNodes(),
@@ -94,6 +88,11 @@ export const useCanvas = (): UseCanvasReturn => {
         ]);
 
         if (isMountedRef.current) {
+          console.log('[useCanvas] Initial load:', {
+            nodes: nodesData.length,
+            links: linksData.length,
+            stats: statsData,
+          });
           setNodes(nodesData);
           setLinks(linksData);
           setStats(statsData);
@@ -103,7 +102,7 @@ export const useCanvas = (): UseCanvasReturn => {
         const message = (err as Error).message;
         if (isMountedRef.current) {
           setError(message);
-          console.error('Failed to load canvas:', message);
+          console.error('[useCanvas] Failed to load:', message);
         }
       } finally {
         if (isMountedRef.current) {
@@ -120,30 +119,40 @@ export const useCanvas = (): UseCanvasReturn => {
   }, []);
 
   /**
-   * Setup event listeners
+   * Setup event listeners - FIXED VERSION
+   * ← Subscribe and cleanup properly
    */
   useEffect(() => {
     if (!isInitialized) return;
 
-    // Node events
-    const unsubNodeCreated = () =>
-      window.electron.canvas.onNodeCreated((_, node) => {
+    console.log('[useCanvas] Setting up event listeners...');
+
+    // Clear old subscriptions
+    unsubscribersRef.current.forEach((unsub) => unsub());
+    unsubscribersRef.current = [];
+
+    try {
+      // ← Node events: subscribe and get unsubscribe function
+      const unsubNodeCreated = window.electron.canvas.onNodeCreated((node: any) => {
+        console.log('[useCanvas] Node created:', node.id);
         if (isMountedRef.current) {
           setNodes((prev) => [...prev, node]);
           setIsDirty(true);
         }
       });
+      unsubscribersRef.current.push(unsubNodeCreated);
 
-    const unsubNodeDeleted = () =>
-      window.electron.canvas.onNodeDeleted((_, nodeId) => {
+      const unsubNodeDeleted = window.electron.canvas.onNodeDeleted((nodeId: string) => {
+        console.log('[useCanvas] Node deleted:', nodeId);
         if (isMountedRef.current) {
           setNodes((prev) => prev.filter((n) => n.id !== nodeId));
           setIsDirty(true);
         }
       });
+      unsubscribersRef.current.push(unsubNodeDeleted);
 
-    const unsubNodeUpdated = () =>
-      window.electron.canvas.onNodeUpdated((_, node) => {
+      const unsubNodeUpdated = window.electron.canvas.onNodeUpdated((node: any) => {
+        console.log('[useCanvas] Node updated:', node.id);
         if (isMountedRef.current) {
           setNodes((prev) =>
             prev.map((n) => (n.id === node.id ? node : n))
@@ -151,81 +160,68 @@ export const useCanvas = (): UseCanvasReturn => {
           setIsDirty(true);
         }
       });
+      unsubscribersRef.current.push(unsubNodeUpdated);
 
-    // Link events
-    const unsubLinkCreated = () =>
-      window.electron.canvas.onLinkCreated((_, link) => {
+      // ← Link events
+      const unsubLinkCreated = window.electron.canvas.onLinkCreated((link: any) => {
+        console.log('[useCanvas] Link created:', link.id);
         if (isMountedRef.current) {
           setLinks((prev) => [...prev, link]);
           setIsDirty(true);
         }
       });
+      unsubscribersRef.current.push(unsubLinkCreated);
 
-    const unsubLinkDeleted = () =>
-      window.electron.canvas.onLinkDeleted((_, linkId) => {
+      const unsubLinkDeleted = window.electron.canvas.onLinkDeleted((linkId: string) => {
+        console.log('[useCanvas] Link deleted:', linkId);
         if (isMountedRef.current) {
           setLinks((prev) => prev.filter((l) => l.id !== linkId));
           setIsDirty(true);
         }
       });
+      unsubscribersRef.current.push(unsubLinkDeleted);
 
-    // State events
-    const unsubStateSaved = () =>
-      window.electron.canvas.onStateSaved((_, state) => {
+      // ← State events
+      const unsubStateSaved = window.electron.canvas.onStateSaved((state: any) => {
+        console.log('[useCanvas] State saved');
         if (isMountedRef.current) {
           setIsDirty(false);
         }
       });
+      unsubscribersRef.current.push(unsubStateSaved);
 
-    const unsubStateLoaded = () =>
-      window.electron.canvas.onStateLoaded((_, state) => {
+      const unsubStateLoaded = window.electron.canvas.onStateLoaded((state: any) => {
+        console.log('[useCanvas] State loaded');
         if (isMountedRef.current) {
           setNodes(state.nodes || []);
           setLinks(state.links || []);
           setIsDirty(false);
         }
       });
+      unsubscribersRef.current.push(unsubStateLoaded);
 
-    // Error event
-    const unsubError = () =>
-      window.electron.canvas.onError((_, error) => {
+      // ← Error event
+      const unsubError = window.electron.canvas.onError((error: any) => {
+        console.error('[useCanvas] Canvas error:', error);
         if (isMountedRef.current) {
           setError(error.message);
-          console.error('Canvas error:', error);
         }
       });
+      unsubscribersRef.current.push(unsubError);
+
+      console.log('[useCanvas] ✅ Event listeners attached');
+    } catch (err) {
+      console.error('[useCanvas] Failed to setup listeners:', err);
+      setError((err as Error).message);
+    }
 
     // Cleanup function
-    const cleanup = () => {
-      window.electron.canvas.removeAllListeners();
+    return () => {
+      console.log('[useCanvas] Cleaning up event listeners...');
+      unsubscribersRef.current.forEach((unsub) => unsub());
+      unsubscribersRef.current = [];
     };
-
-    // Trigger listeners
-    unsubNodeCreated();
-    unsubNodeDeleted();
-    unsubNodeUpdated();
-    unsubLinkCreated();
-    unsubLinkDeleted();
-    unsubStateSaved();
-    unsubStateLoaded();
-    unsubError();
-
-    return cleanup;
   }, [isInitialized]);
-
-  /**
-   * Auto-save trigger listener
-   */
-  useEffect(() => {
-    const unsub = () =>
-      window.electron.app.onSaveTriggered(async () => {
-        if (isDirty) {
-          await saveState({ userTriggered: true });
-        }
-      });
-
-    unsub();
-  }, [isDirty]);
 
   // ===== ACTIONS =====
 
@@ -234,15 +230,20 @@ export const useCanvas = (): UseCanvasReturn => {
       try {
         setError(null);
         setLoading(true);
+        console.log('[useCanvas] Creating node:', nodeId);
+        
         const node = await window.electron.canvas.createNode(
           nodeId,
           type,
           config
         );
+        
+        console.log('[useCanvas] ✅ Node created response:', node);
         return node;
       } catch (err) {
         const message = (err as Error).message;
         setError(message);
+        console.error('[useCanvas] Create node error:', message);
         throw err;
       } finally {
         setLoading(false);
@@ -254,10 +255,12 @@ export const useCanvas = (): UseCanvasReturn => {
   const deleteNode = useCallback(async (nodeId: string) => {
     try {
       setError(null);
+      console.log('[useCanvas] Deleting node:', nodeId);
       await window.electron.canvas.deleteNode(nodeId);
     } catch (err) {
       const message = (err as Error).message;
       setError(message);
+      console.error('[useCanvas] Delete node error:', message);
       throw err;
     }
   }, []);
@@ -472,21 +475,5 @@ export const useCanvas = (): UseCanvasReturn => {
     validate,
     clearError,
     refresh,
-  };
-};
-
-/**
- * Advanced hook for performance-critical apps
- */
-export const useCanvasWithMemoization = () => {
-  const canvas = useCanvas();
-
-  return {
-    ...canvas,
-    // Memoized selectors
-    nodeCount: canvas.nodes.length,
-    linkCount: canvas.links.length,
-    nodeMap: new Map(canvas.nodes.map((n) => [n.id, n])),
-    linkMap: new Map(canvas.links.map((l) => [l.id, l])),
   };
 };

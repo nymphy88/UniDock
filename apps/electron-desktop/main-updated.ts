@@ -2,20 +2,20 @@ import { app, BrowserWindow, ipcMain, Menu, dialog } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
-import { getCanvasStore, CanvasStore } from './canvas-store.js';
-import { terminalExecutor } from './executors/TerminalExecutor.js';
+import { getCanvasStore, CanvasStore } from './canvas-store';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * ElectronCanvasHost - Complete Implementation
- * ✅ All handlers use CanvasStore
- * ✅ Events broadcast to renderer
- * ✅ State persisted to disk
+ * ============================================
+ * ElectronCanvasHost - With Canvas Store
+ * ============================================
+ * 
+ * Now uses CanvasStore for real data!
  */
 class ElectronCanvasHost {
   private mainWindow: BrowserWindow | null = null;
-  private isDev: boolean = !!process.env.VITE_DEV_PORT || process.env.NODE_ENV === 'development';
+  private isDev: boolean = process.env.NODE_ENV === 'development';
   private appDataPath: string = app.getPath('userData');
   private stateFile: string = path.join(app.getPath('userData'), 'canvas-state.json');
   private autoSaveInterval: NodeJS.Timeout | null = null;
@@ -24,9 +24,9 @@ class ElectronCanvasHost {
   constructor() {
     this.canvasStore = getCanvasStore();
     this.setupPaths();
-    this.loadPersistedState();
     this.setupIPC();
     this.setupErrorHandling();
+    this.loadPersistedState();
   }
 
   private setupPaths(): void {
@@ -35,32 +35,9 @@ class ElectronCanvasHost {
     }
   }
 
-  private loadPersistedState(): void {
-    try {
-      if (fs.existsSync(this.stateFile)) {
-        const content = fs.readFileSync(this.stateFile, 'utf-8');
-        const state = JSON.parse(content);
-        this.canvasStore.setState(state);
-        this.log('INFO', `✅ Loaded persisted state (${state.nodes.length} nodes, ${state.links.length} links)`);
-      }
-    } catch (err) {
-      this.log('WARN', `Failed to load state: ${(err as Error).message}`);
-    }
-  }
-
-  private persistState(): void {
-    try {
-      const state = this.canvasStore.saveable();
-      fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
-      this.log('INFO', '💾 State persisted');
-    } catch (err) {
-      this.log('ERROR', `Failed to persist: ${(err as Error).message}`);
-    }
-  }
-
   private log(level: string, message: string): void {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] ${level}: ${message}`);
+    console.log(`[${timestamp}] [${level}] ${message}`);
   }
 
   private setupErrorHandling(): void {
@@ -70,14 +47,46 @@ class ElectronCanvasHost {
     });
   }
 
+  /**
+   * Load persisted state from file
+   */
+  private loadPersistedState(): void {
+    try {
+      if (fs.existsSync(this.stateFile)) {
+        const content = fs.readFileSync(this.stateFile, 'utf-8');
+        const state = JSON.parse(content);
+        this.canvasStore.setState(state);
+        this.log('INFO', `Loaded persisted state (${state.nodes.length} nodes, ${state.links.length} links)`);
+      }
+    } catch (err) {
+      this.log('WARN', `Failed to load state: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Save state to file
+   */
+  private persistState(): void {
+    try {
+      const state = this.canvasStore.saveable();
+      fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
+      this.log('INFO', 'State persisted to disk');
+    } catch (err) {
+      this.log('ERROR', `Failed to persist: ${(err as Error).message}`);
+    }
+  }
+
   private setupIPC(): void {
     // ===== CANVAS: NODE OPERATIONS =====
 
     ipcMain.handle('canvas:create-node', async (_, args) => {
       try {
         const node = this.canvasStore.createNode(args.nodeId, args.type, args.config);
+        
+        // Broadcast to renderer
         this.mainWindow?.webContents.send('canvas:node-created', node);
-        this.log('INFO', `✅ Created node: ${args.nodeId}`);
+        
+        this.log('INFO', `Created node: ${args.nodeId}`);
         return node;
       } catch (error) {
         this.log('ERROR', (error as Error).message);
@@ -98,8 +107,11 @@ class ElectronCanvasHost {
     ipcMain.handle('canvas:delete-node', async (_, nodeId) => {
       try {
         this.canvasStore.deleteNode(nodeId);
+        
+        // Broadcast to renderer
         this.mainWindow?.webContents.send('canvas:node-deleted', nodeId);
-        this.log('INFO', `✅ Deleted node: ${nodeId}`);
+        
+        this.log('INFO', `Deleted node: ${nodeId}`);
         return { success: true };
       } catch (error) {
         this.log('ERROR', (error as Error).message);
@@ -116,6 +128,7 @@ class ElectronCanvasHost {
           args.value,
           args.reason
         );
+        
         this.mainWindow?.webContents.send('canvas:node-updated', node);
         return { success: true, node };
       } catch (error) {
@@ -167,8 +180,9 @@ class ElectronCanvasHost {
           args.targetNodeId,
           args.targetKey
         );
+        
         this.mainWindow?.webContents.send('canvas:link-created', link);
-        this.log('INFO', `✅ Created link: ${link.id}`);
+        this.log('INFO', `Created link: ${link.id}`);
         return link;
       } catch (error) {
         this.log('ERROR', (error as Error).message);
@@ -224,9 +238,12 @@ class ElectronCanvasHost {
         if (metadata) {
           state.metadata = metadata;
         }
+        
+        // Persist to disk
         fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
+        
         this.mainWindow?.webContents.send('canvas:state-saved', state);
-        this.log('INFO', '✅ State saved');
+        this.log('INFO', 'State saved');
         return state;
       } catch (error) {
         this.log('ERROR', (error as Error).message);
@@ -280,26 +297,13 @@ class ElectronCanvasHost {
     });
 
     ipcMain.handle('canvas:get-flow-history', async (_, limit = 10) => {
+      // TODO: implement flow history tracking
       return [];
     });
 
     ipcMain.handle('canvas:clear-flow-history', async () => {
+      // TODO: implement
       return { success: true };
-    });
-
-    // ===== EXECUTOR: TERMINAL =====
-
-    ipcMain.handle('executor:terminal-execute', async (_, command: string) => {
-      try {
-        this.log('INFO', `🔧 Terminal executing: ${command}`);
-        const result = await terminalExecutor.execute(command);
-        this.log('INFO', `✅ Terminal execution complete (exitCode: ${result.exitCode})`);
-        return result;
-      } catch (error) {
-        const message = (error as Error).message;
-        this.log('ERROR', `Terminal execution failed: ${message}`);
-        throw error;
-      }
     });
 
     // ===== FILE I/O =====
@@ -378,17 +382,13 @@ class ElectronCanvasHost {
   }
 
   private createWindow(): void {
-    const preloadPath = path.join(__dirname, 'preload.js');
-    this.log('DEBUG', `Preload path: ${preloadPath}`);
-    this.log('DEBUG', `Preload exists: ${fs.existsSync(preloadPath)}`);
-
     this.mainWindow = new BrowserWindow({
       width: 1400,
       height: 900,
       minWidth: 800,
       minHeight: 600,
       webPreferences: {
-        preload: preloadPath,
+        preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
@@ -396,21 +396,9 @@ class ElectronCanvasHost {
       show: false,
     });
 
-    this.mainWindow.webContents.on('did-finish-load', () => {
-      this.log('INFO', '✅ Did finish load - content loaded');
-    });
-
-    this.mainWindow.webContents.on('preload-error', (event, preloadPath, err: any) => {
-      this.log('ERROR', `Preload error at ${preloadPath}: ${err?.message}`);
-    });
-
     const url = this.isDev
-      ? `http://localhost:${process.env.VITE_DEV_PORT || '4001'}`
+      ? 'http://localhost:4001'
       : `file://${path.join(__dirname, '../dist-renderer/index.html')}`;
-
-    this.log('DEBUG', `isDev: ${this.isDev}`);
-    this.log('DEBUG', `VITE_DEV_PORT env: ${process.env.VITE_DEV_PORT}`);
-    this.log('DEBUG', `Loading URL: ${url}`);
 
     this.mainWindow.loadURL(url);
 
@@ -429,7 +417,7 @@ class ElectronCanvasHost {
   }
 
   private setupAutoSave(): void {
-    const INTERVAL = 30000;
+    const INTERVAL = 30000; // 30 seconds
     this.autoSaveInterval = setInterval(() => {
       if (this.canvasStore.isDirtyState()) {
         this.persistState();
@@ -442,7 +430,9 @@ class ElectronCanvasHost {
     const template: any[] = [
       {
         label: 'File',
-        submenu: [{ label: 'Exit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() }],
+        submenu: [
+          { label: 'Exit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+        ],
       },
       {
         label: 'View',
